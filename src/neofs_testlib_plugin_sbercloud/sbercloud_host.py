@@ -140,7 +140,8 @@ class SbercloudHost(Host):
         )
 
         shell = self.get_shell()
-        result = shell.exec(f"journalctl --no-pager {filters}")
+        options = CommandOptions(no_log = True)
+        result = shell.exec(f"journalctl --no-pager {filters}", options)
         logs = result.stdout
 
         # Dump logs to the directory
