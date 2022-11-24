@@ -118,11 +118,16 @@ class SbercloudHost(Host):
             service_attributes.start_timeout,
         )
 
-    def delete_storage_node_data(self, service_name: str) -> None:
+    def delete_storage_node_data(self, service_name: str, cache_only: bool = False) -> None:
         service_attributes = self._get_service_attributes(service_name)
 
         shell = self.get_shell()
-        shell.exec(f"sudo rm -rf '{service_attributes.data_directory_path}/*'")
+        cmd = (
+            f"sudo rm -rf {service_attributes.data_directory_path}/meta*"
+            if cache_only
+            else f"sudo rm -rf {service_attributes.data_directory_path}/*"
+        )
+        shell.exec(cmd)
 
     def dump_logs(
         self,
