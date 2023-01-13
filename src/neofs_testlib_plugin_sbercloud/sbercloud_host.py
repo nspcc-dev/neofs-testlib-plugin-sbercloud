@@ -7,7 +7,7 @@ from functools import lru_cache
 from typing import Optional
 
 from neofs_testlib.hosting.config import ParsedAttributes
-from neofs_testlib.hosting.interfaces import Host
+from neofs_testlib.hosting.interfaces import Host, DiskInfo
 from neofs_testlib.shell import Shell, SSHShell
 from neofs_testlib.shell.command_inspectors import SudoInspector
 from neofs_testlib.shell.interfaces import CommandOptions
@@ -128,6 +128,56 @@ class SbercloudHost(Host):
             else f"sudo rm -rf {service_attributes.data_directory_path}/*"
         )
         shell.exec(cmd)
+
+    def _get_volume_pci_address(self, device: str) -> str:
+        shell = self.get_shell()
+        # Drive letters in Sbercloud have weird behavior
+        # let say we had drives [vda, vdb, vdc]
+        # If we detach vd*b* and attach it again, the new drive letter
+        # MAY change and it will be [vda, vdc, vde]
+        # or MAN NOT change and it will be [vda, vdb, vdc] as before
+        # However, sbercloud API will still have it as vd*b*
+        # Due to letter of a drive may change we need to find volume by pci address.
+        cmd = f"sudo udevadm info -n {device} | egrep \"S:.*path/pci\" | awk '{{print $2}}'"
+        pci_address = os.path.basename(shell.exec(cmd).stdout.strip())
+        return pci_address
+
+    def _get_volume_label(self, device: str) -> str:
+        shell = self.get_shell()
+        # Due to pci address of a drive may also change
+        # we need to find volume label to check if volume is detached/attached.
+        cmd = f"sudo udevadm info -n {device} | egrep \"S:.*label\" | awk '{{print $2}}'"
+        pci_address = os.path.basename(shell.exec(cmd).stdout.strip())
+        return pci_address
+
+    def detach_disk(self, device: str) -> DiskInfo:
+        sbercloud_client = self._get_sbercloud_client()
+        node_id = sbercloud_client.find_ecs_node_by_ip(self._config.address)
+
+        pci_address = self._get_volume_pci_address(device)
+        volume_label = self._get_volume_label(device)
+        volume_id = sbercloud_client.find_volume_id_by_pci_address(node_id, pci_address.replace("pci-", ""))
+
+        sbercloud_client.detach_volume(node_id, volume_id)
+
+        return DiskInfo({"volume_id": volume_id, "volume_label": volume_label})
+
+    def is_disk_attached(self, device: str, disk_info: DiskInfo) -> bool:
+        label = disk_info["volume_label"]
+        shell = self.get_shell()
+        cmd = f"ls /dev/disk/by-label | grep ^{label}"
+        return shell.exec(cmd, options=CommandOptions(check=False)).stdout.strip() != ""
+
+    def attach_disk(self, device: str, disk_info: DiskInfo) -> None:
+        sbercloud_client = self._get_sbercloud_client()
+        node_id = sbercloud_client.find_ecs_node_by_ip(self._config.address)
+
+        if disk_info is None or "volume_id" not in disk_info:
+            raise KeyError(f"Volume_id must present in service_info for sbercloud: {disk_info}")
+
+        volume_id = disk_info["volume_id"]
+
+        sbercloud_client.attach_volume(node_id, device, volume_id)
 
     def dump_logs(
         self,
