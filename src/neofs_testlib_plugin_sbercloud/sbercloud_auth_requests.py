@@ -38,6 +38,9 @@ class SbercloudAuthRequests:
     def get(self, path: str, query: Optional[dict] = None) -> requests.Response:
         return self._send_request("GET", path, query, data=None)
 
+    def delete(self, path: str, query: Optional[dict] = None) -> requests.Response:
+        return self._send_request("DELETE", path, query, data=None)
+
     def post(
         self, path: str, query: Optional[dict] = None, data: Optional[dict] = None
     ) -> requests.Response:
