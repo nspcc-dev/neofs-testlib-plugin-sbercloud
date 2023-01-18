@@ -122,11 +122,13 @@ class SbercloudHost(Host):
         service_attributes = self._get_service_attributes(service_name)
 
         shell = self.get_shell()
-        cmd = (
-            f"sudo rm -rf {service_attributes.data_directory_path}/meta*"
-            if cache_only
-            else f"sudo rm -rf {service_attributes.data_directory_path}/*"
+        meta_clean_cmd = f"sudo rm -rf {service_attributes.data_directory_path}/meta*/*"
+        data_clean_cmd = (
+            f"; sudo rm -rf {service_attributes.data_directory_path}/data*/*"
+            if not cache_only
+            else ""
         )
+        cmd = f"{meta_clean_cmd}{data_clean_cmd}"
         shell.exec(cmd)
 
     def _get_volume_pci_address(self, device: str) -> str:
