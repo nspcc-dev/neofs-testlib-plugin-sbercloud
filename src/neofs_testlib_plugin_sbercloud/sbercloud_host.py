@@ -59,8 +59,8 @@ class ServiceAttributes(ParsedAttributes):
 
     systemd_service_name: str
     data_directory_path: Optional[str] = None
-    start_timeout: int = 60
-    stop_timeout: int = 60
+    start_timeout: int = 90
+    stop_timeout: int = 90
 
 
 class SbercloudHost(Host):
@@ -105,6 +105,19 @@ class SbercloudHost(Host):
             service_attributes.start_timeout,
         )
 
+    def restart_service(self, service_name: str) -> None:
+        service_attributes = self._get_service_attributes(service_name)
+
+        shell = self.get_shell()
+        output = shell.exec(f"sudo systemctl restart {service_attributes.systemd_service_name}")
+        logger.info(f"Start command output: {output.stdout}")
+
+        self._wait_for_service_to_be_in_state(
+            service_attributes.systemd_service_name,
+            "active (running)",
+            service_attributes.start_timeout,
+        )
+
     def stop_service(self, service_name: str) -> None:
         service_attributes = self._get_service_attributes(service_name)
 
@@ -115,7 +128,7 @@ class SbercloudHost(Host):
         self._wait_for_service_to_be_in_state(
             service_attributes.systemd_service_name,
             "inactive",
-            service_attributes.start_timeout,
+            service_attributes.stop_timeout,
         )
 
     def delete_storage_node_data(self, service_name: str, cache_only: bool = False) -> None:
