@@ -58,7 +58,7 @@ class ServiceAttributes(ParsedAttributes):
     """
 
     systemd_service_name: str
-    data_directory_path: Optional[str]
+    data_directory_path: Optional[str] = None
     start_timeout: int = 60
     stop_timeout: int = 60
 
