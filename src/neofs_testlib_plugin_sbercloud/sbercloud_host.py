@@ -10,7 +10,7 @@ from neofs_testlib.hosting.config import ParsedAttributes
 from neofs_testlib.hosting.interfaces import DiskInfo, Host
 from neofs_testlib.shell import Shell, SSHShell
 from neofs_testlib.shell.command_inspectors import SudoInspector
-from neofs_testlib.shell.interfaces import CommandOptions
+from neofs_testlib.shell.interfaces import CommandOptions, CommandResult
 
 from neofs_testlib_plugin_sbercloud.sbercloud_client import SbercloudClient
 
@@ -201,25 +201,48 @@ class SbercloudHost(Host):
         directory_path: str,
         since: Optional[datetime] = None,
         until: Optional[datetime] = None,
+        filter_regex: Optional[int] = None,
     ) -> None:
-        # We do not filter out logs of neofs services, because system logs might contain
-        # information that is useful for troubleshooting
-        filters = " ".join(
-            [
-                f"--since '{since:%Y-%m-%d %H:%M:%S}'" if since else "",
-                f"--until '{until:%Y-%m-%d %H:%M:%S}'" if until else "",
-            ]
-        )
-
-        shell = self.get_shell()
-        options = CommandOptions(no_log=True)
-        result = shell.exec(f"journalctl --no-pager {filters}", options)
-        logs = result.stdout
+        logs = self._get_logs(since, until, filter_regex).stdout
 
         # Dump logs to the directory
         file_path = os.path.join(directory_path, f"{self._config.address}-log.txt")
         with open(file_path, "w") as file:
             file.write(logs)
+
+    def is_message_in_logs(
+        self,
+        message_regex: str,
+        since: Optional[datetime] = None,
+        until: Optional[datetime] = None,
+    ) -> bool:
+        result = self._get_logs(since, until, message_regex)
+        if result.return_code == 0 and result.stdout:
+            return True
+
+        return False
+
+    def _get_logs(
+        self,
+        since: Optional[datetime] = None,
+        until: Optional[datetime] = None,
+        filter_regex: Optional[int] = None,
+    ) -> CommandResult:
+        arguments_list = [
+            f"--since '{since:%Y-%m-%d %H:%M:%S}'" if since else "",
+            f"--until '{until:%Y-%m-%d %H:%M:%S}'" if until else "",
+        ]
+
+        if filter_regex:
+            arguments_list.append(f"--grep '{filter_regex}'")
+            arguments_list.append("--case-sensitive=0")
+
+        arguments = " ".join(arguments_list)
+
+        shell = self.get_shell()
+        options = CommandOptions(no_log=True, check=False)
+        result = shell.exec(f"journalctl --no-pager {arguments}", options)
+        return result
 
     def _get_service_attributes(self, service_name) -> ServiceAttributes:
         service_config = self.get_service_config(service_name)
