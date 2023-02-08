@@ -16,10 +16,10 @@ classifiers = [
 ]
 keywords = ["neofs", "test"]
 dependencies = [
-    "neofs_testlib>=0.10.0",
+    "neofs_testlib>=1.1.1",
     "requests>=2.28.0",
 ]
-requires-python = ">=3.9"
+requires-python = "==3.10"
 
 [project.optional-dependencies]
 dev = ["black", "bumpver", "isort", "pre-commit"]
@@ -37,7 +37,7 @@ line_length = 100
 
 [tool.black]
 line-length = 100
-target-version = ["py39"]
+target-version = ["py310"]
 
 [tool.bumpver]
 current_version = "0.5.0"
