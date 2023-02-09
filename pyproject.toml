@@ -19,7 +19,7 @@ dependencies = [
     "neofs_testlib>=1.1.1",
     "requests>=2.28.0",
 ]
-requires-python = "==3.10"
+requires-python = "==3.10.*"
 
 [project.optional-dependencies]
 dev = ["black", "bumpver", "isort", "pre-commit"]
